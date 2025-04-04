@@ -1,5 +1,8 @@
 FROM docker.io/curlimages/curl:latest as linkerd
 ARG LINKERD_AWAIT_VERSION=v0.2.7
+RUN yarn config set "strict-ssl" false
+RUN git config --global http.sslVerify "false"
+
 RUN curl -sSLo /tmp/linkerd-await https://github.com/linkerd/linkerd-await/releases/download/release%2F${LINKERD_AWAIT_VERSION}/linkerd-await-${LINKERD_AWAIT_VERSION}-amd64 && \
         chmod 755 /tmp/linkerd-await
 
@@ -28,7 +31,6 @@ COPY --from=jemalloc /usr/local/lib/libjemalloc.so.2 /usr/local/lib/
 
 ARG DEBIAN_FRONTEND=noninteractive
 # Disable SSL verification for Git (not recommended for production)
-RUN git config --global http.sslVerify "false"
 RUN apt-get update --fix-missing && apt-get -y install \
         bash \
         openssh-server \
@@ -42,19 +44,13 @@ RUN apt-get update --fix-missing && apt-get -y install \
         git \  # Install Git
     && apt-get clean && apt-get purge && apt-get autoremove --purge -y
 
-# Ensure CA certificates are up to date
-RUN update-ca-certificates
-
-# Configure Git to use the CA certificates
-RUN git config --global http.sslCAInfo /etc/ssl/certs/ca-certificates.crt
 
 
 
-# Debugging: Check if CA certificates are installed correctly
+
 RUN ls -l /etc/ssl/certs/ca-certificates.crt && cat /etc/ssl/certs/ca-certificates.crt
 
 # Temporarily configure Yarn to skip SSL verification
-RUN yarn config set "strict-ssl" false
 
 # Install latest chrome dev package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
 # Note: this installs the necessary libs to make the bundled version of Chrome that Puppeteer
