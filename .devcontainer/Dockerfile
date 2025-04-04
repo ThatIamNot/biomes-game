@@ -45,6 +45,7 @@ RUN apt-get update --fix-missing && apt-get -y install \
   # For software EGL/GLES2.
   libgles2-mesa-dev \
   rsync \
+  ca-certificates \  # Add CA certificates package
   && apt-get clean && apt-get purge && apt-get autoremove --purge -y
 
 # Setup our locale.
