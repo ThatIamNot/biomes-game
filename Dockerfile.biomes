@@ -46,6 +46,9 @@ RUN update-ca-certificates
 # Configure Git to use the CA certificates
 RUN git config --global http.sslCAInfo /etc/ssl/certs/ca-certificates.crt
 
+# Disable SSL verification for Git (not recommended for production)
+RUN git config --global http.sslVerify "false"
+
 # Debugging: Check if CA certificates are installed correctly
 RUN ls -l /etc/ssl/certs/ca-certificates.crt && cat /etc/ssl/certs/ca-certificates.crt
 
