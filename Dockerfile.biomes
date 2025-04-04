@@ -35,7 +35,15 @@ RUN apt-get update --fix-missing && apt-get -y install \
         python3-pip \
         python3-venv \
         wget \
-        gnupg
+        gnupg \
+        ca-certificates \  # Add CA certificates package
+    && apt-get clean && apt-get purge && apt-get autoremove --purge -y
+
+# Ensure CA certificates are up to date
+RUN update-ca-certificates
+
+# Configure Git to use the CA certificates
+RUN git config --global http.sslCAInfo /etc/ssl/certs/ca-certificates.crt
 
 # Install latest chrome dev package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
 # Note: this installs the necessary libs to make the bundled version of Chrome that Puppeteer
@@ -59,22 +67,3 @@ ARG NODE_VERSION=20.0.0
 ARG NODE_PACKAGE=node-v${NODE_VERSION}-linux-x64
 ARG NODE_INSTALL_DIR=/usr/local
 ARG NODE_HOME=${NODE_INSTALL_DIR}/${NODE_PACKAGE}
-
-RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/${NODE_PACKAGE}.tar.xz | tar -xvJC ${NODE_INSTALL_DIR}
-ENV PATH ${NODE_HOME}/bin:${PATH}
-
-# First copy base files, these change slowly
-COPY --chown=nextjs:nodejs .venv/ .venv/
-COPY --chown=nextjs:nodejs node_modules/ node_modules/
-COPY --chown=nextjs:nodejs .env* *.js *.json yarn.lock ./
-COPY --chown=nextjs:nodejs public/ public/
-COPY --chown=nextjs:nodejs src/ src/
-COPY --chown=nextjs:nodejs deploy/ deploy/
-COPY --chown=nextjs:nodejs dist/ dist/
-COPY --chown=nextjs:nodejs .next/ .next/
-
-
-USER nextjs
-
-ENTRYPOINT ["node"]
-CMD ["dist/web.js"]
