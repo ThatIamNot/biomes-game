@@ -48,6 +48,9 @@ RUN apt-get update --fix-missing && apt-get -y install \
   ca-certificates \  # Add CA certificates package
   && apt-get clean && apt-get purge && apt-get autoremove --purge -y
 
+# Ensure CA certificates are up to date
+RUN update-ca-certificates
+
 # Setup our locale.
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
 RUN locale-gen en_US.UTF-8
