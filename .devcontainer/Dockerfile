@@ -51,6 +51,9 @@ RUN apt-get update --fix-missing && apt-get -y install \
 # Ensure CA certificates are up to date
 RUN update-ca-certificates
 
+# Configure Git to use the CA certificates
+RUN git config --global http.sslCAInfo /etc/ssl/certs/ca-certificates.crt
+
 # Setup our locale.
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
 RUN locale-gen en_US.UTF-8
