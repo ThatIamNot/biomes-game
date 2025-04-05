@@ -98,38 +98,6 @@ RUN npm install -g yarn
 # Install Bazel.
 RUN npm install -g @bazel/bazelisk
 
-# Install buildifier for vscode bazel file formatting support.
-RUN sudo wget -O /usr/bin/buildifier https://github.com/bazelbuild/buildtools/releases/download/0.29.0/buildifier
-RUN sudo chmod 755 /usr/bin/buildifier
-
-# Install gcloud CLI.
-RUN curl -s https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-428.0.0-linux-x86_64.tar.gz | tar xvz -C ${HOME} && \
-  ${HOME}/google-cloud-sdk/install.sh --quiet --usage-reporting false --path-update true --command-completion true
-
-# Install kubectl.
-RUN ${HOME}/google-cloud-sdk/bin/gcloud components install kubectl
-
-# Install Flux CLI.
-RUN curl -s https://fluxcd.io/install.sh | sudo bash
-
-# Install Rust to get access to the Rust CLI tools.
-RUN curl https://sh.rustup.rs/?version=1.66 -sSf | bash -s -- -y
-ENV PATH="${HOME}/.cargo/bin:${PATH}"
-RUN rustup target add wasm32-wasi
-RUN rustup target add wasm32-unknown-unknown
-
-# Install some helpful WASM inspection tools like wasm2wat
-RUN sudo apt install wabt
-
-# Install Redis
-# We install from source because there are no Redis 7 packages available on
-# Ubuntu 22.
-ARG REDIS_VERSION=redis-7.0.8
-RUN curl -s https://download.redis.io/releases/${REDIS_VERSION}.tar.gz | tar xvz -C ${HOME} \
-    && make -j`nproc` -C ${HOME}/${REDIS_VERSION} \
-    && sudo make install -C ${HOME}/${REDIS_VERSION} \
-    && rm -rf ${HOME}/${REDIS_VERSION}
-
 # Remember our console history between sessions.
 ENV COMMAND_HISTORY_DIR ${HOME}/commandhistory
 RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=${COMMAND_HISTORY_DIR}/.bash_history" \
