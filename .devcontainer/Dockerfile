@@ -92,12 +92,6 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | b
 
 ENV PATH ${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:$PATH
 
-# Install yarn.
-RUN npm install -g yarn
-
-# Install Bazel.
-RUN npm install -g @bazel/bazelisk
-
 # Remember our console history between sessions.
 ENV COMMAND_HISTORY_DIR ${HOME}/commandhistory
 RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=${COMMAND_HISTORY_DIR}/.bash_history" \
