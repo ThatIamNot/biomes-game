@@ -3,14 +3,11 @@ WORKDIR /app
 RUN npm install -g yarn@1.22.21 --force
 
 FROM base AS build
-RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential git node-gyp pkg-config python-is-python3 ca-certificates
-# Configure Git to use the CA certificates
-RUN update-ca-certificates
-# Ensure Git SSL verification is properly set up
-RUN git config --global http.sslVerify true
+RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential git node-gyp pkg-config python-is-python3
 
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+# Add --ignore-scripts flag to skip the node-git-hooks script
+RUN yarn install --frozen-lockfile --ignore-scripts
 
 COPY . .
 RUN yarn build
