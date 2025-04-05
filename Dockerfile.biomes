@@ -49,9 +49,6 @@ RUN git config --global http.sslCAInfo /etc/ssl/certs/ca-certificates.crt
 # Debugging: Check if CA certificates are installed correctly
 RUN ls -l /etc/ssl/certs/ca-certificates.crt && cat /etc/ssl/certs/ca-certificates.crt
 
-# Temporarily configure Yarn to skip SSL verification
-RUN yarn config set "strict-ssl" false
-
 # Install latest chrome dev package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
 # Note: this installs the necessary libs to make the bundled version of Chrome that Puppeteer
 # installs, work.
