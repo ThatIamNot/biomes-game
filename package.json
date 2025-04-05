@@ -287,7 +287,6 @@
     "typed-emitter": "^2.1.0",
     "typescript": "^5.0.4",
     "typescript-plugin-css-modules": "^5.0.1",
-    "v8-profiler-next": "https://github.com/hyj1991/v8-profiler-next#fd2a2528dc2f956c753c44e592cd5774713e52ac",
     "web-worker": "^1.2.0",
     "webpack": "^5.81.0",
     "webpack-cli": "^5.0.2",
