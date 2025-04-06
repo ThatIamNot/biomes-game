@@ -6,8 +6,8 @@ FROM base AS build
 RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential git node-gyp pkg-config python-is-python3
 
 COPY package.json yarn.lock ./
-# Add --ignore-scripts flag to skip the node-git-hooks script
-RUN yarn install --frozen-lockfile --ignore-scripts
+# Remove the --frozen-lockfile flag to allow yarn to update the lockfile
+RUN yarn install
 
 COPY . .
 RUN yarn build
