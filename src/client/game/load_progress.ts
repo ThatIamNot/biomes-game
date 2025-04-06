@@ -29,12 +29,15 @@ export type LoadProgress = {
 const PROGRESS_POLL_RATE_MS = 500;
 const PROGRESS_RENDER_POLL_RATE_MS = 1000 / 30;
 export const REQUIRED_FRAMES = 30;
+const MAX_LOAD_RETRIES = 3;
+const LOAD_RETRY_DELAY_MS = 2000;
 
 export class ClientLoader {
   context: ClientContext | null = null;
   private controller = new BackgroundTaskController();
   private interruptLoad?: (error: Error) => void;
   private contextCleanup?: () => void;
+  private loadRetries = 0;
 
   constructor(
     private readonly userId: BiomesId,
@@ -45,68 +48,142 @@ export class ClientLoader {
   async load() {
     const loadStartTime = performance.now();
 
-    const { earlyContextLoader, start, stop } = await initializeClient(
-      this.userId,
-      this.configOptions
-    );
-    this.contextCleanup = () => fireAndForget(stop());
+    try {
+      const { earlyContextLoader, start, stop } = await initializeClient(
+        this.userId,
+        this.configOptions
+      );
+      this.contextCleanup = () => fireAndForget(stop());
 
-    // Poll our context state until it indicates that we're ready.
-    const loadCompletePromise = new Promise<ClientContext>(
-      (resolve, reject) => {
-        this.interruptLoad = reject;
+      // Poll our context state until it indicates that we're ready.
+      const loadCompletePromise = new Promise<ClientContext>(
+        (resolve, reject) => {
+          this.interruptLoad = (error) => {
+            // Handle interruption with retry logic
+            if (this.loadRetries < MAX_LOAD_RETRIES) {
+              this.loadRetries++;
+              console.warn(`Load interrupted, retrying (${this.loadRetries}/${MAX_LOAD_RETRIES})...`);
+              
+              // Show retry message to user
+              this.onProgressUpdate({
+                startedLoading: true,
+                channelStats: { status: "reconnecting" } as WebSocketChannelStats,
+                bootstrapped: false,
+                entitiesLoaded: 0,
+                playerMeshLoaded: false,
+                terrainMeshLoaded: false,
+                sceneRendered: 0,
+              });
+              
+              // Wait before retrying
+              setTimeout(() => {
+                this.load().then(resolve).catch(reject);
+              }, LOAD_RETRY_DELAY_MS);
+            } else {
+              // If we've exhausted retries, reject with the error
+              console.error("Load failed after maximum retries:", error);
+              reject(error);
+            }
+          };
 
-        this.controller.runInBackground("checkProgress", async (signal) => {
-          let pollRate = PROGRESS_POLL_RATE_MS;
-          while (await sleep(pollRate, signal)) {
-            try {
-              const latestProgress = extractLoadProgress(
-                earlyContextLoader,
-                this.context
-              );
-              const summary = progressSummary(latestProgress);
-              if (summary === "terrain_meshing") {
-                if (this.userId) {
-                  fireAndForget(
-                    triggerPlayerShardsMesh(this.context!.resources)
-                  );
+          this.controller.runInBackground("checkProgress", async (signal) => {
+            let pollRate = PROGRESS_POLL_RATE_MS;
+            while (await sleep(pollRate, signal)) {
+              try {
+                const latestProgress = extractLoadProgress(
+                  earlyContextLoader,
+                  this.context
+                );
+                const summary = progressSummary(latestProgress);
+                if (summary === "terrain_meshing") {
+                  if (this.userId) {
+                    fireAndForget(
+                      triggerPlayerShardsMesh(this.context!.resources)
+                    );
+                  }
+                } else if (summary === "scene_rendered") {
+                  // Permit things to continue to render.
+                  pollRate = PROGRESS_RENDER_POLL_RATE_MS;
+                  resolve(clientContext);
+                } else if (summary === "ready") {
+                  this.onProgressUpdate(latestProgress);
+                  break;
+                } else if (summary === "broken") {
+                  // Handle broken state with retry logic
+                  if (this.loadRetries < MAX_LOAD_RETRIES) {
+                    this.loadRetries++;
+                    console.warn(`Connection broken, retrying (${this.loadRetries}/${MAX_LOAD_RETRIES})...`);
+                    
+                    // Wait before retrying
+                    await sleep(LOAD_RETRY_DELAY_MS, signal);
+                    continue;
+                  } else {
+                    throw new Error("Connection broken after maximum retries");
+                  }
                 }
-              } else if (summary === "scene_rendered") {
-                // Permit things to continue to render.
-                pollRate = PROGRESS_RENDER_POLL_RATE_MS;
-                resolve(clientContext);
-              } else if (summary === "ready") {
                 this.onProgressUpdate(latestProgress);
+              } catch (e) {
+                if (this.loadRetries < MAX_LOAD_RETRIES) {
+                  this.loadRetries++;
+                  console.warn(`Error during loading, retrying (${this.loadRetries}/${MAX_LOAD_RETRIES})...`, e);
+                  
+                  // Wait before retrying
+                  await sleep(LOAD_RETRY_DELAY_MS, signal);
+                  continue;
+                }
+                reject(e);
                 break;
               }
-              this.onProgressUpdate(latestProgress);
-            } catch (e) {
-              reject(e);
-              break;
             }
-          }
+          });
+        }
+      );
+
+      const clientContext = await start();
+      this.context = clientContext;
+
+      const ret = await loadCompletePromise;
+      // Record how long it took us to startup.
+      const loadDurationSeconds = (performance.now() - loadStartTime) / 1000;
+      makeCvalHook({
+        path: ["game", "startupLoadSeconds"],
+        help: "The time the user spent looking at the loading screen.",
+        collect: () => loadDurationSeconds,
+      });
+      return ret;
+    } catch (error) {
+      console.error("Error during client loading:", error);
+      
+      // If we still have retries left, try again
+      if (this.loadRetries < MAX_LOAD_RETRIES) {
+        this.loadRetries++;
+        console.warn(`Load failed, retrying (${this.loadRetries}/${MAX_LOAD_RETRIES})...`);
+        
+        // Show retry message to user
+        this.onProgressUpdate({
+          startedLoading: true,
+          channelStats: { status: "reconnecting" } as WebSocketChannelStats,
+          bootstrapped: false,
+          entitiesLoaded: 0,
+          playerMeshLoaded: false,
+          terrainMeshLoaded: false,
+          sceneRendered: 0,
         });
+        
+        // Wait before retrying
+        await sleep(LOAD_RETRY_DELAY_MS);
+        return this.load();
       }
-    );
-
-    const clientContext = await start();
-    this.context = clientContext;
-
-    const ret = await loadCompletePromise;
-    // Record how long it took us to startup.
-    const loadDurationSeconds = (performance.now() - loadStartTime) / 1000;
-    makeCvalHook({
-      path: ["game", "startupLoadSeconds"],
-      help: "The time the user spent looking at the loading screen.",
-      collect: () => loadDurationSeconds,
-    });
-    return ret;
+      
+      throw error;
+    }
   }
 
   async stop() {
     await this.controller.abortAndWait();
     if (this.interruptLoad) {
-      this.interruptLoad(new Error("Client loader interrupted."));
+      // Changed to use a more descriptive error message
+      this.interruptLoad(new Error("Client loader stopped by user or application."));
       this.interruptLoad = undefined;
     }
     this.contextCleanup?.();
@@ -244,7 +321,7 @@ export function descriptionForSummary(summary: LoadProgressSummary): string {
     case "problems_connecting":
       return "Problems while connecting to server, retrying...";
     case "broken":
-      return "Can't connect to server right now. Try again later.";
+      return "Can't connect to server right now. Retrying...";
     case "bootstrapping":
       return "Pulling up bootstraps...";
     case "game_entities":
