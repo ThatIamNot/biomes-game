@@ -1,8 +1,7 @@
 FROM node:20.18.0-slim AS base
 WORKDIR /app
 
-FROM base AS build
-# Install required dependencies including SSH
+# Install dependencies needed for the build
 RUN apt-get update -qq && apt-get install --no-install-recommends -y \
     build-essential \
     git \
@@ -11,52 +10,28 @@ RUN apt-get update -qq && apt-get install --no-install-recommends -y \
     python-is-python3 \
     openssh-client
 
-# Copy package files first to leverage Docker caching
-COPY package.json yarn.lock* package-lock.json* .npmrc* ./
-
-# Install dependencies with legacy peer deps flag
+# Copy package files and install dependencies
+COPY package.json yarn.lock* package-lock.json* ./
 RUN npm install --legacy-peer-deps
 
-# Copy all project files
+# Copy the rest of the application
 COPY . .
-
-# Create an explicit index.js entry point
-RUN echo "require('./server.js');" > index.js
 
 # Build the application
 RUN npm run build
 
-# Check if the build succeeded and necessary files exist
-RUN ls -la /app/.next || true
-RUN ls -la /app || true
+# Copy our custom index.js to the root
+COPY index.js .
 
-FROM base AS runner
-WORKDIR /app
+# Make sure index.js is executable
+RUN chmod +x index.js
 
-# Install production dependencies only
-RUN apt-get update -qq && apt-get install --no-install-recommends -y \
-    chromium \
-    chromium-sandbox \
-    && rm -rf /var/lib/apt/lists /var/cache/apt/archives
-
-# Copy necessary files from build stage
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/index.js ./
-# If there's a server.js in the root, copy it
-COPY --from=build /app/server.js ./server.js
-# If the next build creates a standalone directory
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.env.deploy ./.env
-
-# Set environment variables
+# Set production environment
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Expose port
+# Expose the port
 EXPOSE 8080
 
-# Use the explicit entry point
+# Run the application with our custom entry point
 CMD ["node", "index.js"]
