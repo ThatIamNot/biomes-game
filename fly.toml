@@ -1,14 +1,18 @@
 # fly.toml app configuration file
 app = "biomes-game"
-primary_region = "waw"
+primary_region = "ams"
 
 [build]
-  # Using the updated Dockerfile
+  # Use the Docker builder directly
+  dockerfile = "Dockerfile"
 
 [env]
   PORT = "8080"
   NODE_ENV = "production"
-  # Add any other environment variables needed
+  # Set to false based on local setup documentation
+  DISCORD_HOOKS_ENABLED = "false"
+  # Add logging environment variables
+  DEBUG = "*"
 
 [http_service]
   internal_port = 8080
@@ -17,9 +21,12 @@ primary_region = "waw"
   auto_start_machines = true
   processes = ["app"]
 
-# Configuration for the VM - Note that 64GB memory is recommended
-# but Fly.io may have limits on machine sizes
+# Explicitly set the command to run our entry point
+[processes]
+  app = "node /app/index.js"
+
+# Start with a smaller VM for testing
 [[vm]]
   cpu_kind = "shared"
   cpus = 8
-  memory_mb = 32768  # Maximum allowed or affordable
+  memory_mb = 16384
