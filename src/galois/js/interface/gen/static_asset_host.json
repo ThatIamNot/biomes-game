@@ -1,1 +1,3 @@
-{"staticAssetBaseUrl":"https://static.biomes.gg/"}
+{
+  "staticAssetBaseUrl": "http://34.135.151.38:3000/assets/"
+}
