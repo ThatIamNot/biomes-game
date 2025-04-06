@@ -2,10 +2,11 @@ FROM node:20.18.0-slim AS base
 WORKDIR /app
 
 FROM base AS build
-# Add openssh-client to the installation
+# Added openssh-client to the installation
 RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential git node-gyp pkg-config python-is-python3 openssh-client
 
-COPY .npmrc package.json ./
+COPY package.json ./
+# Added --legacy-peer-deps flag
 RUN npm install --legacy-peer-deps
 
 COPY . .
