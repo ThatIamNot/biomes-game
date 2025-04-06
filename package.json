@@ -27,8 +27,7 @@
     "galois:editor:start": "echo Deprecated. Run \\\"./b galois editor start\\\" instead.",
     "galois:editor:build": "echo Deprecated. Run \\\"./b galois editor build\\\" instead.",
     "galois:editor:watch": "echo Deprecated. Run \\\"./b galois editor watch\\\" instead.",
-    "galois:editor:package": "echo Deprecated. Run \\\"./b galois editor package\\\" instead.",
-    "postinstall": "node-git-hooks"
+    "galois:editor:package": "echo Deprecated. Run \\\"./b galois editor package\\\" instead."
   },
   "dependencies": {
     "@google-cloud/monitoring": "^3.0.2",
@@ -76,7 +75,7 @@
     "crc": "^4.3.2",
     "crypto-browserify": "^3.12.0",
     "d3-hierarchy": "^3.1.2",
-    "deep-freeze-strict": "^1.1.1",
+    "deep-freeze-strict": "^1.1.0",
     "detect-gpu": "^5.0.28",
     "dom-to-image-more": "^3.1.6",
     "dotenv": "^16.0.3",
