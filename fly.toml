@@ -1,25 +1,22 @@
-# fly.toml app configuration file
-app = "biomes-game"
-primary_region = "waw"
+# fly.toml app configuration file generated for biomes-game on 2025-04-06T14:52:57Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'biomes-game'
+primary_region = 'ams'
 
 [build]
-  # Using the updated Dockerfile
-
-[env]
-  PORT = "8080"
-  NODE_ENV = "production"
-  # Add any other environment variables needed
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  processes = ["app"]
+  min_machines_running = 0
+  processes = ['app']
 
-# Configuration for the VM - Note that 64GB memory is recommended
-# but Fly.io may have limits on machine sizes
 [[vm]]
-  cpu_kind = "shared"
+  cpu_kind = 'shared'
   cpus = 8
-  memory_mb = 32768  # Maximum allowed or affordable
+  memory_mb = 16384
