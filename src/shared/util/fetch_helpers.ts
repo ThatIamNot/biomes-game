@@ -19,35 +19,61 @@ export class APIError extends Error {
 
 export type FetchWrapperInit = RequestInit & {
   timeoutMs?: number;
+  retries?: number;
+  retryDelayMs?: number;
 };
 
-// Wraps fetch with our nice options
+const DEFAULT_RETRIES = 3;
+const DEFAULT_RETRY_DELAY_MS = 1000;
+
+// Wraps fetch with our nice options and retry logic
 export async function wrappedFetch(
   input: RequestInfo,
   init?: FetchWrapperInit
 ) {
-  if (!init?.timeoutMs) {
-    return fetch(input, init);
-  }
+  const retries = init?.retries ?? DEFAULT_RETRIES;
+  const retryDelayMs = init?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+  
+  // Function to perform a single fetch attempt
+  const attemptFetch = async (attempt: number): Promise<Response> => {
+    try {
+      if (!init?.timeoutMs) {
+        return await fetch(input, init);
+      }
 
-  ok(
-    !init?.signal,
-    "Explicitly set signal during a fetch with a timeout. Try using default timeout"
-  );
+      ok(
+        !init?.signal,
+        "Explicitly set signal during a fetch with a timeout. Try using default timeout"
+      );
 
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), init.timeoutMs);
-  try {
-    const response = await fetch(input, {
-      ...init,
-      signal: controller.signal,
-    });
-    clearTimeout(id);
-    return response;
-  } catch (error) {
-    log.error(`Fetch failed for ${input}: ${error.message}`, { error });
-    throw error;
-  }
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), init.timeoutMs);
+      try {
+        const response = await fetch(input, {
+          ...init,
+          signal: controller.signal,
+        });
+        clearTimeout(id);
+        return response;
+      } catch (error) {
+        clearTimeout(id);
+        throw error;
+      }
+    } catch (error) {
+      // If we have retries left, try again after delay
+      if (attempt < retries) {
+        log.warn(`Fetch failed for ${input}: ${error.message}, retrying (${attempt + 1}/${retries})...`, { error });
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        return attemptFetch(attempt + 1);
+      }
+      
+      // No more retries, log and throw
+      log.error(`Fetch failed for ${input} after ${retries} attempts: ${error.message}`, { error });
+      throw error;
+    }
+  };
+
+  return attemptFetch(0);
 }
 
 async function maybeHandleErrorResponse(
