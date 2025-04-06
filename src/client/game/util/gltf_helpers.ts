@@ -6,11 +6,17 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 const loader = new GLTFLoader();
 
 export function loadGltf(url: string) {
-  return loader.loadAsync(url);
+  return loader.loadAsync(url).catch((error) => {
+    console.error(`Failed to load GLTF from ${url}: ${error.message}`, { error });
+    throw error;
+  });
 }
 
 export function parseGltf(data: string | ArrayBuffer) {
-  return loader.parseAsync(data, "/");
+  return loader.parseAsync(data, "/").catch((error) => {
+    console.error(`Failed to parse GLTF: ${error.message}`, { error });
+    throw error;
+  });
 }
 
 export function gltfToThree(gltf: GLTF): THREE.Group {
