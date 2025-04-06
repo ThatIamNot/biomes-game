@@ -27,7 +27,8 @@
     "galois:editor:start": "echo Deprecated. Run \\\"./b galois editor start\\\" instead.",
     "galois:editor:build": "echo Deprecated. Run \\\"./b galois editor build\\\" instead.",
     "galois:editor:watch": "echo Deprecated. Run \\\"./b galois editor watch\\\" instead.",
-    "galois:editor:package": "echo Deprecated. Run \\\"./b galois editor package\\\" instead."
+    "galois:editor:package": "echo Deprecated. Run \\\"./b galois editor package\\\" instead.",
+    "postinstall": "echo 'Skipping git hooks'"
   },
   "dependencies": {
     "@google-cloud/monitoring": "^3.0.2",
