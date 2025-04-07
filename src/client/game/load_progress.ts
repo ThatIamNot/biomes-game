@@ -290,3 +290,4 @@ export function progressForSummary(summary: LoadProgressSummary): number {
       return 12;
   }
 }
+ 
