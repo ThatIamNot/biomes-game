@@ -37,17 +37,12 @@ export async function wrappedFetch(
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), init.timeoutMs);
-  try {
-    const response = await fetch(input, {
-      ...init,
-      signal: controller.signal,
-    });
-    clearTimeout(id);
-    return response;
-  } catch (error) {
-    log.error(`Fetch failed for ${input}: ${error.message}`, { error });
-    throw error;
-  }
+  const response = await fetch(input, {
+    ...init,
+    signal: controller.signal,
+  });
+  clearTimeout(id);
+  return response;
 }
 
 async function maybeHandleErrorResponse(
