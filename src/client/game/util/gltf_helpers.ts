@@ -6,14 +6,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 const loader = new GLTFLoader();
 
 export function loadGltf(url: string) {
-<<<<<<< HEAD
   return loader.loadAsync(url);
-=======
-  return loader.loadAsync(url).catch((error) => {
-    console.error(`Failed to load GLTF from ${url}: ${error.message}`, { error });
-    throw error;
-  });
->>>>>>> parent of d2bbdfa (Update gltf_helpers.ts)
 }
 
 export function parseGltf(data: string | ArrayBuffer) {
