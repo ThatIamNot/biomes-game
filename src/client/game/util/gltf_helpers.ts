@@ -4,31 +4,12 @@ import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 const loader = new GLTFLoader();
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
-
-// Helper function to add retry logic
-async function retryFetch(fetchFn: () => Promise<any>, retries = MAX_RETRIES, delay = RETRY_DELAY): Promise<any> {
-  try {
-    return await fetchFn();
-  } catch (error) {
-    if (retries <= 0) {
-      throw error;
-    }
-    console.warn(`Fetch failed, retrying... (${MAX_RETRIES - retries + 1}/${MAX_RETRIES})`);
-    await new Promise(resolve => setTimeout(resolve, delay));
-    return retryFetch(fetchFn, retries - 1, delay);
-  }
-}
 
 export function loadGltf(url: string) {
-  return retryFetch(() => loader.loadAsync(url))
-    .catch((error) => {
-      console.error(`Failed to load GLTF from ${url}: ${error.message}`, { error });
-      // Return a placeholder or fallback if available instead of throwing
-      // For now, we still throw to maintain backward compatibility
-      throw error;
-    });
+  return loader.loadAsync(url).catch((error) => {
+    console.error(`Failed to load GLTF from ${url}: ${error.message}`, { error });
+    throw error;
+  });
 }
 
 export function parseGltf(data: string | ArrayBuffer) {
