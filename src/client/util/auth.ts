@@ -68,20 +68,36 @@ export async function emailLogin(email: string, inviteCode?: string) {
 
 export async function devLogin(usernameOrId: string, inviteCode?: string) {
   try {
-    // Store the username/ID for potential debugging
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem("devLoginUsernameOrId", usernameOrId);
-    }
+    // Store the username/ID in localStorage for fallback authentication
+    localStorage.setItem("devLoginUsernameOrId", usernameOrId);
     
     const { uri } = await jsonPost<{ uri: string }, {}>(
       constructForeignAuthUrl("dev", { usernameOrId, inviteCode }),
       {}
     );
     
-    await fetch(uri);
+    // Ensure we have a valid URI before proceeding
+    if (!uri) {
+      throw new Error("Invalid authentication URI received");
+    }
     
-    // Wait for login to complete
+    // Make the fetch request and handle the response properly
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Authentication failed with status: ${response.status}`);
+    }
+    
+    // Wait for authentication to complete
     await waitForLoggedIn();
+    
+    // Verify we're actually logged in
+    const isLoggedIn = await checkLoggedIn();
+    if (!isLoggedIn) {
+      throw new Error("Login process completed but user is not authenticated");
+    }
+    
+    // Force a refresh of the auth cookie
+    document.cookie = `${AUTH_USER_COOKIE}=${document.cookie.match(new RegExp(`${AUTH_USER_COOKIE}=([^;]+)`))?.pop() || ''}; path=/; max-age=86400`;
     
   } catch (error) {
     console.error("Dev login error:", error);
@@ -96,7 +112,7 @@ export async function devLogin(usernameOrId: string, inviteCode?: string) {
 async function waitForLoggedIn() {
   let timer: ReturnType<typeof setInterval> | undefined;
   let attempts = 0;
-  const maxAttempts = 30;
+  const maxAttempts = 60;
   
   return new Promise<void>((resolve, reject) => {
     const checkAuth = () => {
@@ -107,9 +123,11 @@ async function waitForLoggedIn() {
       }
       
       jsonPost("/api/auth/check", {})
-        .then(() => {
-          clearInterval(timer);
-          resolve();
+        .then((response) => {
+          if (response && response.userId) {
+            clearInterval(timer);
+            resolve();
+          }
         })
         .catch((error) => {
           if (isAPIErrorCode("unauthorized", error)) {
@@ -117,11 +135,18 @@ async function waitForLoggedIn() {
             return;
           }
           if (isAPIErrorCode("not_found", error)) {
-            // Account doesn't exist
-            if (attempts > maxAttempts) {
+            // Try fallback authentication if available
+            const storedUsername = localStorage.getItem("devLoginUsernameOrId");
+            if (storedUsername && attempts > 10) {
+              // If we've tried several times and still failing, attempt to re-login
+              console.warn("Attempting fallback authentication...");
               clearInterval(timer);
-              reject(new AccountDoesntExistError());
+              devLogin(storedUsername)
+                .then(resolve)
+                .catch(() => reject(new AccountDoesntExistError()));
+              return;
             }
+            // Otherwise continue waiting
             return;
           }
           clearInterval(timer);
@@ -173,8 +198,9 @@ export async function foreignLogin(
 
 export async function selfExists() {
   try {
-    // Add simple retry for reliability
-    for (let i = 0; i < 3; i++) {
+    // Add retries for better reliability
+    let retries = 3;
+    while (retries > 0) {
       try {
         const profile = await jsonFetch<SelfProfileResponse>(
           "/api/social/self_profile"
@@ -185,9 +211,10 @@ export async function selfExists() {
           isAPIErrorCode("not_found", error) ||
           isAPIErrorCode("unauthorized", error)
         ) {
-          if (i < 2) {
+          if (retries > 1) {
             // Wait before retrying
             await new Promise(resolve => setTimeout(resolve, 1000));
+            retries--;
             continue;
           }
           return false;
