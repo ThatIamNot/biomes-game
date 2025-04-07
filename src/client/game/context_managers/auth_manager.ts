@@ -64,6 +64,12 @@ export class AuthManager {
       return new BiomesUser(userId, Date.now(), new Set());
     };
     
+    // Create a fallback profile in case of persistent failures
+    const createFallbackProfile = () => {
+      console.warn("Creating fallback user profile due to persistent fetch failures");
+      return new BiomesUser(userId, Date.now(), new Set());
+    };
+    
     try {
       const profile: SelfProfileResponse = await asyncBackoffOnAllErrors(
         async () => {
@@ -124,6 +130,7 @@ export class AuthManager {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
           log.error("Error fetching self profile, retrying", { error });
           throw error;
         }
@@ -141,6 +148,8 @@ export class AuthManager {
       new Set(profile.roles)
     );
 =======
+=======
+>>>>>>> parent of 4739a15 (Update auth_manager.ts)
 =======
 >>>>>>> parent of 4739a15 (Update auth_manager.ts)
 =======
