@@ -36,6 +36,12 @@ export class AuthManager {
       return new BiomesUser(INVALID_BIOMES_ID, undefined, new Set());
     }
     
+    // Create a fallback profile in case of persistent failures
+    const createFallbackProfile = () => {
+      console.warn("Creating fallback user profile due to persistent fetch failures");
+      return new BiomesUser(userId, Date.now(), new Set());
+    };
+    
     try {
       const profile: SelfProfileResponse = await asyncBackoffOnAllErrors(
         async () => {
@@ -44,7 +50,25 @@ export class AuthManager {
               "/api/social/self_profile"
             );
           } catch (error) {
-            log.error("Error fetching self profile, retrying", { error });
+            // Check if this is a 404 error
+            if (error.message && error.message.includes("404")) {
+              log.error("Error fetching self profile (404 Not Found), retrying", { error });
+              
+              // After several retries with 404s, we might need to create a new session
+              // Try to refresh the page authentication state
+              try {
+                const storedUsername = localStorage.getItem("devLoginUsernameOrId");
+                if (storedUsername) {
+                  log.warn("Attempting to refresh authentication state with stored credentials");
+                  // This is just to trigger a refresh of the auth state, not a full login
+                  await fetch(`/api/auth/dev/login?usernameOrId=${encodeURIComponent(storedUsername)}`);
+                }
+              } catch (refreshError) {
+                log.error("Failed to refresh authentication state", { refreshError });
+              }
+            } else {
+              log.error("Error fetching self profile, retrying", { error });
+            }
             throw error;
           }
         },
@@ -52,7 +76,7 @@ export class AuthManager {
           baseMs: 1000,
           exponent: 1.25,
           maxMs: 10000,
-          maxAttempts: 3
+          maxAttempts: 5, // Limit the number of retries
         }
       ).catch((finalError) => {
         log.error("Failed to fetch user profile after multiple attempts", { finalError });
@@ -66,6 +90,7 @@ export class AuthManager {
         };
       });
       
+      // If we got a valid profile, use it
       if (profile && profile.user) {
         try {
           ok(userId === profile.user.id, "User ID mismatch");
@@ -75,18 +100,16 @@ export class AuthManager {
             new Set(profile.roles)
           );
         } catch (error) {
-          log.error("User ID mismatch in profile", { error });
-          // Create fallback user
-          return new BiomesUser(userId, Date.now(), new Set());
+          log.error("User ID mismatch in profile", { error, userId, profileId: profile.user.id });
+          return createFallbackProfile();
         }
       } else {
-        // Create fallback user
-        return new BiomesUser(userId, Date.now(), new Set());
+        // If we got an empty or invalid profile, use fallback
+        return createFallbackProfile();
       }
     } catch (error) {
       log.error("Unhandled error in fetchUserProfile", { error });
-      // Create fallback user
-      return new BiomesUser(userId, Date.now(), new Set());
+      return createFallbackProfile();
     }
   }
 
