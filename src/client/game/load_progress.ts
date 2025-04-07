@@ -468,5 +468,6 @@ export function progressForSummary(summary: LoadProgressSummary): number {
     case "scene_rendered":
       return 11;
     case "ready":
-      return 
-(Content truncated due to size limit. Use line ranges to read in chunks)
+      return 12;
+  }
+}
