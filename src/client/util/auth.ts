@@ -68,39 +68,12 @@ export async function emailLogin(email: string, inviteCode?: string) {
 
 export async function devLogin(usernameOrId: string, inviteCode?: string) {
   try {
-    // Store the username/ID in localStorage for fallback authentication
-    localStorage.setItem("devLoginUsernameOrId", usernameOrId);
-    
     const { uri } = await jsonPost<{ uri: string }, {}>(
       constructForeignAuthUrl("dev", { usernameOrId, inviteCode }),
       {}
     );
-    
-    // Ensure we have a valid URI before proceeding
-    if (!uri) {
-      throw new Error("Invalid authentication URI received");
-    }
-    
-    // Make the fetch request and handle the response properly
-    const response = await fetch(uri);
-    if (!response.ok) {
-      throw new Error(`Authentication failed with status: ${response.status}`);
-    }
-    
-    // Wait for authentication to complete
-    await waitForLoggedIn();
-    
-    // Verify we're actually logged in
-    const isLoggedIn = await checkLoggedIn();
-    if (!isLoggedIn) {
-      throw new Error("Login process completed but user is not authenticated");
-    }
-    
-    // Force a refresh of the auth cookie
-    document.cookie = `${AUTH_USER_COOKIE}=${document.cookie.match(new RegExp(`${AUTH_USER_COOKIE}=([^;]+)`))?.pop() || ''}; path=/; max-age=86400`;
-    
+    await fetch(uri);
   } catch (error) {
-    console.error("Dev login error:", error);
     if (isAPIErrorCode("not_found", error)) {
       throw new AccountDoesntExistError();
     } else {
@@ -112,51 +85,25 @@ export async function devLogin(usernameOrId: string, inviteCode?: string) {
 async function waitForLoggedIn() {
   let timer: ReturnType<typeof setInterval> | undefined;
   let attempts = 0;
-  const maxAttempts = 60;
-  
   return new Promise<void>((resolve, reject) => {
-    const checkAuth = () => {
-      if (attempts++ > maxAttempts) {
-        clearInterval(timer);
-        reject(new Error("Timed out waiting for logged in"));
-        return;
-      }
-      
+    if (attempts++ > 60) {
+      reject(new Error("Timed out waiting for logged in"));
+    }
+    timer = setInterval(() => {
       jsonPost("/api/auth/check", {})
-        .then((response) => {
-          if (response && response.userId) {
-            clearInterval(timer);
-            resolve();
-          }
+        .then(() => {
+          resolve();
         })
         .catch((error) => {
           if (isAPIErrorCode("unauthorized", error)) {
-            // Still waiting for auth, continue
             return;
           }
           if (isAPIErrorCode("not_found", error)) {
-            // Try fallback authentication if available
-            const storedUsername = localStorage.getItem("devLoginUsernameOrId");
-            if (storedUsername && attempts > 10) {
-              // If we've tried several times and still failing, attempt to re-login
-              console.warn("Attempting fallback authentication...");
-              clearInterval(timer);
-              devLogin(storedUsername)
-                .then(resolve)
-                .catch(() => reject(new AccountDoesntExistError()));
-              return;
-            }
-            // Otherwise continue waiting
-            return;
+            reject(new AccountDoesntExistError());
           }
-          clearInterval(timer);
           reject(error);
         });
-    };
-    
-    timer = setInterval(checkAuth, 1_000);
-    // Run the first check immediately
-    checkAuth();
+    }, 1_000);
   }).finally(() => {
     if (timer) {
       clearInterval(timer);
@@ -198,34 +145,18 @@ export async function foreignLogin(
 
 export async function selfExists() {
   try {
-    // Add retries for better reliability
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        const profile = await jsonFetch<SelfProfileResponse>(
-          "/api/social/self_profile"
-        );
-        return !!profile.user;
-      } catch (error) {
-        if (
-          isAPIErrorCode("not_found", error) ||
-          isAPIErrorCode("unauthorized", error)
-        ) {
-          if (retries > 1) {
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            retries--;
-            continue;
-          }
-          return false;
-        }
-        throw error;
-      }
-    }
-    return false;
+    const profile = await jsonFetch<SelfProfileResponse>(
+      "/api/social/self_profile"
+    );
+    return !!profile.user;
   } catch (error) {
-    console.error("Error checking if self exists:", error);
-    return false;
+    if (
+      isAPIErrorCode("not_found", error) ||
+      isAPIErrorCode("unauthorized", error)
+    ) {
+      return false;
+    }
+    throw error;
   }
 }
 
