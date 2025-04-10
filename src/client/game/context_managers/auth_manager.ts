@@ -365,7 +365,7 @@ export class AuthManager {
     return new AuthManager(await this.fetchUserProfile(userId));
   }
 
-  static logout() {
+   static logout() {
     fireAndForget(
       logout().then(() => {
         setTimeout(() => {
@@ -378,6 +378,6 @@ export class AuthManager {
 
 export async function loadAuthManager<C extends EarlyClientContext>(
   loader: RegistryLoader<C>
-) {
+): Promise<AuthManager> {
   return AuthManager.bootstrap(await loader.get("userId"));
 }
