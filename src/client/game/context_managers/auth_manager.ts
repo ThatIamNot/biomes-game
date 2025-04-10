@@ -381,6 +381,3 @@ export async function loadAuthManager<C extends EarlyClientContext>(
 ) {
   return AuthManager.bootstrap(await loader.get("userId"));
 }
-
-
-}
