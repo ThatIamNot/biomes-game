@@ -318,5 +318,5 @@ export async function loadAuthManager<C extends EarlyClientContext>(
   loader: RegistryLoader<C>
 ) {
   return AuthManager.bootstrap(await loader.get("userId"));
-}
+
 }
