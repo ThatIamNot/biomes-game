@@ -312,4 +312,8 @@ function prefetchAudioAssets(resources: ClientResources) {
 
 export async function loadAudioManager(loader: RegistryLoader<ClientContext>) {
   return new AudioManager(await loader.get("resources"));
+  export async function loadAuthManager<C extends EarlyClientContext>(
+  loader: RegistryLoader<C>
+) {
+  return AuthManager.bootstrap(await loader.get("userId"));
 }
