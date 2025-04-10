@@ -9,6 +9,7 @@ import type { RegistryLoader } from "@/shared/registry";
 import { fireAndForget } from "@/shared/util/async";
 import { MultiMap } from "@/shared/util/collections";
 import type { Extends } from "@/shared/util/type_helpers";
+import { asyncBackoffOnAllErrors } from "@/shared/util/retry_helpers";
 import { ok } from "assert";
 import { clamp, round, sample } from "lodash";
 import * as THREE from "three";
